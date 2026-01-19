@@ -25,61 +25,6 @@ db.connect((err) => {
     } else {
         console.log('Connected to MySQL database');
 
-        // Create table if it doesn't exist
-        const createTableQuery = `
-            CREATE TABLE IF NOT EXISTS posts (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                title VARCHAR(255) NOT NULL,
-                body TEXT NOT NULL,
-                completed BOOLEAN DEFAULT FALSE
-            )
-        `;
-
-        db.query(createTableQuery, (err, result) => {
-            if (err) {
-                console.error('Error creating table:', err);
-            } else {
-                console.log('Table ready');
-
-                // Add completed column if it doesn't exist
-                const checkColumnQuery = `
-                    SHOW COLUMNS FROM posts LIKE 'completed'
-                `;
-
-                db.query(checkColumnQuery, (err, result) => {
-                    if (err) {
-                        console.error('Error checking column:', err);
-                    } else if (result.length === 0) {
-                        // Column doesn't exist, add it
-                        const addColumnQuery = `
-                            ALTER TABLE posts 
-                            ADD COLUMN completed BOOLEAN DEFAULT FALSE
-                        `;
-
-                        db.query(addColumnQuery, (err, result) => {
-                            if (err) {
-                                console.error('Error adding column:', err);
-                            } else {
-                                console.log('Database schema updated');
-                            }
-                        });
-                    } else {
-                        // Check for dueDate column
-                        const checkDueDateQuery = "SHOW COLUMNS FROM posts LIKE 'dueDate'";
-                        db.query(checkDueDateQuery, (err, result) => {
-                            if (err) console.error('Error checking dueDate column:', err);
-                            else if (result.length === 0) {
-                                const addDueDateQuery = "ALTER TABLE posts ADD COLUMN dueDate DATE NULL";
-                                db.query(addDueDateQuery, (err, res) => {
-                                    if (err) console.error('Error adding dueDate column:', err);
-                                    else console.log('Added dueDate column');
-                                });
-                            }
-                        });
-                    }
-                });
-            }
-        });
     }
 });
 
@@ -96,6 +41,11 @@ app.get('/api/posts', (req, res) => {
     if (req.query.dueDate) {
         conditions.push('dueDate = ?');
         params.push(req.query.dueDate);
+    }
+
+    if (req.query.username) {
+        conditions.push('username = ?');
+        params.push(req.query.username);
     }
 
     if (conditions.length > 0) {
@@ -151,8 +101,8 @@ app.put('/api/posts/:id', (req, res) => {
 
 
 app.post('/api/posts', (req, res) => {
-    const { title, body, dueDate } = req.body;
-    db.query('INSERT INTO posts (title, body, completed, dueDate) VALUES (?, ?, ?, ?)', [title, body, false, dueDate || null], (err, result) => {
+    const { title, body, dueDate, username } = req.body;
+    db.query('INSERT INTO posts (title, body, completed, dueDate, username) VALUES (?, ?, ?, ?, ?)', [title, body, false, dueDate || null, username || 'pccoe'], (err, result) => {
         if (err) {
             console.error('Error creating todo:', err);
             res.status(500).json({ error: 'Error creating todo' });
@@ -164,7 +114,8 @@ app.post('/api/posts', (req, res) => {
                 title,
                 body,
                 completed: false,
-                dueDate
+                dueDate,
+                username
             });
         }
     });
@@ -187,6 +138,20 @@ app.delete('/api/posts/:id', (req, res) => {
 });
 
 
+
+app.post('/api/login', (req, res) => {
+    const { username, password } = req.body;
+    db.query('SELECT * FROM users WHERE username = ? AND password = ?', [username, password], (err, results) => {
+        if (err) {
+            console.error('Error fetching user:', err);
+            res.status(500).json({ error: 'Internal server error' });
+        } else if (results.length > 0) {
+            res.json({ message: 'Login successful', user: results[0] });
+        } else {
+            res.status(401).json({ error: 'Invalid credentials' });
+        }
+    });
+});
 
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

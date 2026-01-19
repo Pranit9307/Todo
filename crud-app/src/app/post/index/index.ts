@@ -1,12 +1,13 @@
-import { CommonModule } from '@angular/common'; // Import CommonModule
-import { Component } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Component, ChangeDetectorRef, Inject, PLATFORM_ID } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
+import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Post } from '../post';
 import { PostService } from '../post-service';
 
 @Component({
   selector: 'app-index',
+  standalone: true,
   imports: [RouterLink, FormsModule, CommonModule], // Add CommonModule here
   templateUrl: './index.html',
   styleUrl: './index.css',
@@ -16,10 +17,13 @@ export class Index {
   statusFilter: string = 'all';
   dueDateFilter: string = '';
 
-  constructor(private postService: PostService) { }
+  constructor(private postService: PostService, private router: Router, private cdr: ChangeDetectorRef, @Inject(PLATFORM_ID) private platformId: Object) { }
 
   ngOnInit() {
-    this.loadPosts();
+    if (isPlatformBrowser(this.platformId)) {
+      this.statusFilter = 'all'; // Ensure default
+      this.loadPosts();
+    }
   }
 
   loadPosts() {
@@ -34,8 +38,12 @@ export class Index {
       filters.dueDate = this.dueDateFilter;
     }
 
+    console.log('Loading posts with filters:', filters); // Debug log
+
     this.postService.getPosts(filters).subscribe((data: Post[]) => {
       this.posts = data;
+      console.log('Posts loaded:', this.posts); // Debug log
+      this.cdr.detectChanges(); // Force UI update
     });
   }
 
